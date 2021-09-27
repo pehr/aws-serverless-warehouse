@@ -1,0 +1,270 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  OrderMgmtTask
+
+  Sample SAM Template for OrderMgmtTask
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 20
+    Tags:
+      ADMIN: !Ref Admin
+      PROJECT: !Ref ProjectName
+      ENVIRONMENT: !Ref Environment
+Parameters:
+  Environment:
+    Type: String
+    Default: DEV
+    AllowedValues:
+      - DEV
+      - PROD
+      - TEST
+    Description: Allowed Environment Names for Deploy.
+  Admin:
+    Type: String
+    Default: pehr.assarsson
+    Description: Who to contact with any  questions or problems.
+  ProjectName:
+    Type: String
+    Default: OrderMgmtTask
+    Description: Name of project, for  identification.
+Resources:
+  LambdaRoleXray:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${Env}-OrderMgmtLambdaRoleXray
+        - { Env: !Ref Environment }
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: xray-lambda-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'ses:*'
+                  - 'xray:PutTraceSegments'
+                  - 'xray:PutTelemetryRecords'
+                  - 'dynamodb:*'
+                Resource: '*'
+        - PolicyName: database-lambda-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:*'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - Fn::GetAtt:
+                    - "DynamoDBArticleTable"
+                    - "StreamArn"
+                  - Fn::GetAtt:
+                    - "DynamoDBProductTable"
+                    - "StreamArn"
+        - PolicyName: s3
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                Resource:
+                  - !Sub arn:aws:s3:::*
+                  - !Sub arn:aws:s3:::*/*
+      Path: /
+  DynamoDBArticleTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub
+        - ${Env}-OrderMgmtArticleTable
+        - { Env: !Ref Environment }
+      KeySchema:
+        - AttributeName: "art_id"
+          KeyType: "HASH"
+      AttributeDefinitions:
+        - AttributeName: "art_id"
+          AttributeType: "S"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: ADMIN
+          Value: !Ref Admin
+        - Key: PROJECT
+          Value: !Ref ProjectName
+        - Key: ENVIRONMENT
+          Value: !Ref Environment
+  DynamoDBProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub
+        - ${Env}-OrderMgmtProductTable
+        - { Env: !Ref Environment }
+      KeySchema:
+        - AttributeName: "product"
+          KeyType: "HASH"
+        - AttributeName: "art_id"
+          KeyType: "RANGE"
+      AttributeDefinitions:
+        - AttributeName: "product"
+          AttributeType: "S"
+        - AttributeName: "art_id"
+          AttributeType: "S"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: ADMIN
+          Value: !Ref Admin
+        - Key: PROJECT
+          Value: !Ref ProjectName
+        - Key: ENVIRONMENT
+          Value: !Ref Environment
+  OrderMgmtS3bucket:
+    Type: AWS::S3::Bucket
+    DependsOn: FileUpdateFunction
+    Description: "Bucket where inventory and product lists will be uploaded and where they will be read and stored in DynamoDB.
+    After, the processed files will be moved to the history folder"
+    Properties:
+      Tags:
+        - Key: ADMIN
+          Value: !Ref Admin
+        - Key: PROJECT
+          Value: !Ref ProjectName
+        - Key: ENVIRONMENT
+          Value: !Ref Environment
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: update/
+            Function: !GetAtt FileUpdateFunction.Arn
+  S3InvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FileUpdateFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt OrderMgmtS3bucket.Arn
+  APIGWInvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ProductsApiFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WarehouseAPI}/*/*/*"
+  FileUpdateFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    DependsOn: DynamoDBArticleTable
+    Properties:
+      CodeUri: OrderManagement
+      Role:
+        Fn::GetAtt:
+          - "LambdaRoleXray"
+          - "Arn"
+      Handler: se.pehr.assignment.ordermgmt.lambdas.FileUpdateHandler::handleRequest
+      Runtime: java8
+      MemorySize: 1024
+      Timeout: 15
+      Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          TABLE_ARTICLE_NAME: !Ref DynamoDBArticleTable
+          TABLE_PRODUCT_NAME: !Ref DynamoDBProductTable
+  ProductsApiFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: OrderManagement
+      Role:
+        Fn::GetAtt:
+          - "LambdaRoleXray"
+          - "Arn"
+      Handler: se.pehr.assignment.ordermgmt.lambdas.ProductsApiHandler::handleRequest
+      Runtime: java8
+      MemorySize: 1024
+      Timeout: 15
+      Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          TABLE_ARTICLE_NAME: !Ref DynamoDBArticleTable
+          TABLE_PRODUCT_NAME: !Ref DynamoDBProductTable
+  WarehouseAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub
+        - ${Env}-WarehouseAPI
+        - { Env: !Ref Environment }
+      Description: An API for warehouse functionality
+      Tags:
+        - Key: ADMIN
+          Value: !Ref Admin
+        - Key: PROJECT
+          Value: !Ref ProjectName
+        - Key: ENVIRONMENT
+          Value: !Ref Environment
+  ApiRootResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref WarehouseAPI
+      ParentId: !GetAtt
+        - WarehouseAPI
+        - RootResourceId
+      PathPart: warehouse
+      #PathPart: '{proxy+}'
+  ApiProductsResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref WarehouseAPI
+      ParentId: !Ref ApiRootResource
+      PathPart: products
+  ApiProductIdProxyResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref WarehouseAPI
+      ParentId: !Ref ApiProductsResource
+      PathPart: '{product_id}'
+      #PathPart: '{proxy+}'
+  ApiProductsMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref WarehouseAPI
+      ResourceId: !Ref ApiProductsResource
+      HttpMethod: GET
+      RequestParameters:
+        method.request.querystring.unavailable: false
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ProductsApiFunction.Arn}/invocations
+  ApiDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    DependsOn: ApiProductsMethod
+    Properties:
+      RestApiId: !Ref WarehouseAPI
+      Description: My deployment
+      StageName: prod
+#Outputs:

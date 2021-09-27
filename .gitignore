@@ -1,0 +1,6 @@
+/OrderManagement/target/
+.DS_Store
+.idea
+.iml
+/.aws-sam/
+/.aws-sam/*
