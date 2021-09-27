@@ -25,7 +25,21 @@ public class InventoryManager {
         }
     }
 
+    /**
+     * returns the article with requested id from the database.
+     * @param artId
+     * @return
+     */
     public Article getArticle(String artId){
         return inventoryDao.getArticle(artId);
+    }
+
+    /**
+     * Sends a request to update the article with the requested quantity.</br>
+     * @param artId
+     * @param changedStockQuantity  can be both a positive and negative value.  If negative the quantity is removed from the stock.
+     */
+    public void updateArticleStock(String artId, int changedStockQuantity){
+        inventoryDao.updateArticleStock(artId,changedStockQuantity);
     }
 }

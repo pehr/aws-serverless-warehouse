@@ -94,7 +94,9 @@ public class ProductsDao {
 		}
 		return products;
 	}
+
 	public List<ProductArticle> getProductArticles(String product_name){
+		System.out.println("DB prod name - " + product_name);
 		List<ProductArticle> productArticles = new ArrayList<>();
 		QuerySpec spec = new QuerySpec()
 				.withKeyConditionExpression("product = :v_prod")

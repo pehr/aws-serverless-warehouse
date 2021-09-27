@@ -7,6 +7,7 @@ import se.pehr.assignment.ordermgmt.database.ProductsDao;
 import se.pehr.assignment.ordermgmt.jsonobjects.*;
 
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.List;
 
 public class ProductsManager {
@@ -49,26 +50,38 @@ public class ProductsManager {
         productsDao.updateProduct("PRODUCT", product.getName(), -1);
     }
 
-    public Products getProducts(){
-        System.out.println("GET PRODUCTS");
+    public Products getProducts(boolean onlyAvailable){
         ProductsDao dao = new ProductsDao();
-        InventoryDao Invao = new InventoryDao();
         Products products = dao.getUniqueProducts();
 
+        Iterator<Product> product = products.getProducts().iterator();
+        while (product.hasNext()) {
+            Product prod = product.next(); // must be called before you can call i.remove()
 
-        for (Product product:
-                products.getProducts()) {
-                product.setContainArticles(dao.getProductArticles(product.getName()));
-                getProductArticlesInventory(product.getContainArticles());
+            prod.setContainArticles(dao.getProductArticles(prod.getName()));
+            getProductArticlesInventory(prod.getContainArticles());
 
-                getAvailableProductCount(product);
+            getAvailableProductCount(prod);
+            if(prod.getAvailableQuantity()==0 && onlyAvailable){
+                product.remove();
+            }
+
+
         }
-        try {
-            System.out.println(objectMapper.writeValueAsString(products));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
+
         return products;
+    }
+
+    public Product getProduct(String product_name){
+        ProductsDao dao = new ProductsDao();
+
+        Product product = new Product();
+        product.setContainArticles(dao.getProductArticles(product_name));
+        getProductArticlesInventory(product.getContainArticles());
+
+        getAvailableProductCount(product);
+
+        return product;
     }
 
     InventoryManager inventoryManager  = new InventoryManager();
@@ -83,7 +96,6 @@ public class ProductsManager {
 
     protected void getAvailableProductCount(Product product){
         //Init leastavailable with an arbitrary high value.
-        System.out.println("getCount. "  + product.getContainArticles().size());
         int leastAvailable= 1000000;
         for (ProductArticle productArticle :
                 product.getContainArticles()) {

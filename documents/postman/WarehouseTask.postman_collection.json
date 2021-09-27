@@ -1,0 +1,101 @@
+{
+	"info": {
+		"_postman_id": "28d3a9f9-97c5-41bd-92ee-aed26229b3ac",
+		"name": "Tasks",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Warehouse",
+			"item": [
+				{
+					"name": "GetProducts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://tayazm3bu5.execute-api.eu-north-1.amazonaws.com/prod/warehouse/products",
+							"protocol": "https",
+							"host": [
+								"tayazm3bu5",
+								"execute-api",
+								"eu-north-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"warehouse",
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PostOrderRequest",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"order_id\": \"12345678\",\n    \"product_cart\": [\n        {\n            \"name\": \"Dining Chair\",\n            \"quantity\": 1\n        }\n    ]\n\n\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://tayazm3bu5.execute-api.eu-north-1.amazonaws.com/prod/warehouse/products",
+							"protocol": "https",
+							"host": [
+								"tayazm3bu5",
+								"execute-api",
+								"eu-north-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"warehouse",
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetProducts with Unavailable",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://tayazm3bu5.execute-api.eu-north-1.amazonaws.com/prod/warehouse/products?unavailable=true",
+							"protocol": "https",
+							"host": [
+								"tayazm3bu5",
+								"execute-api",
+								"eu-north-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"warehouse",
+								"products"
+							],
+							"query": [
+								{
+									"key": "unavailable",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

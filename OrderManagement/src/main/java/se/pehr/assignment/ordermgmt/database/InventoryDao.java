@@ -42,8 +42,6 @@ public class InventoryDao {
 	Table table = dynamoDB.getTable(TABLE_NAME);
 
     public void updateArticle(Article article) {
-
-
 		NameMap expressionAttributeNames = new NameMap();
 		//expressionAttributeNames.put("#ARTID", "art_id");
 		expressionAttributeNames.put("#NAME", "name");
@@ -72,7 +70,32 @@ public class InventoryDao {
 	    }
     }
 
+	public void updateArticleStock(String article_id, int changedStockQuantity) {
+		System.out.println("changedStockQuantity dao: " + changedStockQuantity);
+		NameMap expressionAttributeNames = new NameMap();
+		//expressionAttributeNames.put("#ARTID", "art_id");
+		expressionAttributeNames.put("#STOCK", "stock");
+		//expressionAttributeNames.put("#UPD", "updated");
 
+
+//		Map<String, Object> expressionAttributeValues = new HashMap<String, Object>();
+		ValueMap expressionAttributeValues = new ValueMap()
+				.withInt(":valStock", changedStockQuantity);
+		try {
+			UpdateItemSpec updateItemSpec2 = new UpdateItemSpec()
+					.withPrimaryKey(new PrimaryKey("art_id",article_id))
+					.withUpdateExpression("ADD #STOCK :valStock ")
+					.withNameMap(expressionAttributeNames)
+					.withValueMap(expressionAttributeValues)
+					.withReturnValues(ReturnValue.UPDATED_NEW);
+
+			UpdateItemOutcome outcome2 =  table.updateItem(updateItemSpec2);
+
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Database update failed -"+e.getMessage(), e);
+		}
+	}
 	public Article getArticle(String artId){
 		Article article = new Article();
 
