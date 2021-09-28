@@ -11,7 +11,6 @@ Files to be uploaded to the database are put in an S3 bucket, where a trigger no
 The Lambda reads the file and adds the contents to the database.
 An API Gateway receives REST request and sends them to another lambda which queries the database and transforms the data as needed, before returning a response.
 
-Even if it's functionality  at present is limited. It's ability t
 ## Compromises
 The time available forced a number of compromises along the way.
 Error handling is limited, more time can be spent on when data is not in assumed format.
